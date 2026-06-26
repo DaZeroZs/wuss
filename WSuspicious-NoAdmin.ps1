@@ -86,9 +86,24 @@ function Set-SystemProxy {
         $script:BackupProxyServer = $null
     }
 
-    # Set proxy
+    # Backup WinHTTP proxy (for Windows Update service)
+    try {
+        $script:BackupWinHttpProxy = & netsh winhttp show proxy 2>$null | Out-String
+    } catch {
+        $script:BackupWinHttpProxy = $null
+    }
+
+    # Set IE proxy (for user context)
     Set-ItemProperty -Path $regPath -Name "ProxyEnable" -Value 1
     Set-ItemProperty -Path $regPath -Name "ProxyServer" -Value "${Server}:${Port}"
+
+    # Set WinHTTP proxy (for Windows Update SERVICE - this is the key!)
+    try {
+        $result = & netsh winhttp set proxy "${Server}:${Port}" "<local>" 2>&1
+        Write-DebugLog "WinHTTP proxy set: $result"
+    } catch {
+        Write-Log "Warning: Could not set WinHTTP proxy (may need admin)" Yellow
+    }
 
     Write-Log "System proxy set to ${Server}:${Port}" Green
 }
@@ -97,12 +112,19 @@ function Remove-SystemProxy {
     $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
 
     try {
+        # Restore IE proxy
         if ($null -ne $script:BackupProxyEnable) {
             Set-ItemProperty -Path $regPath -Name "ProxyEnable" -Value $script:BackupProxyEnable -ErrorAction SilentlyContinue
         }
         if ($null -ne $script:BackupProxyServer) {
             Set-ItemProperty -Path $regPath -Name "ProxyServer" -Value $script:BackupProxyServer -ErrorAction SilentlyContinue
         }
+
+        # Restore WinHTTP proxy
+        if ($script:BackupWinHttpProxy -match "Direct access") {
+            & netsh winhttp reset proxy 2>&1 | Out-Null
+        }
+
         Write-Log "System proxy restored" Green
     } catch {
         Write-Log "Warning: Could not fully restore proxy settings" Yellow
