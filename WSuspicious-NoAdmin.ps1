@@ -16,7 +16,7 @@ param(
     [string]$Exe = ".\PsExec64.exe",
     [string]$Command = '-accepteula -s -d cmd /c "echo 1 > C:\wsuspicious.was.here"',
     [int]$ProxyPort = 13337,
-    [switch]$Debug,
+    [switch]$DebugMode,
     [switch]$AutoInstall,
     [switch]$Help
 )
@@ -43,12 +43,12 @@ Options:
   -Exe <path>         Path to executable (Default: .\PsExec64.exe)
   -Command <cmd>      Command to execute
   -ProxyPort <port>   Proxy port (Default: 13337)
-  -Debug              Enable verbose output
+  -DebugMode          Enable verbose output
   -AutoInstall        Auto-start Windows Update
   -Help               Show this help
 
 Example:
-  .\WSuspicious-NoAdmin.ps1 -AutoInstall -Debug
+  .\WSuspicious-NoAdmin.ps1 -AutoInstall -DebugMode
 
 "@ -ForegroundColor White
 }
@@ -60,7 +60,7 @@ function Write-Log {
 
 function Write-DebugLog {
     param([string]$Message)
-    if ($Debug) { Write-Log $Message Gray }
+    if ($DebugMode) { Write-Log $Message Gray }
 }
 
 function Get-WSUSConfig {
@@ -541,7 +541,7 @@ try {
 
     # Create proxy
     Write-Log "Initializing proxy..." Cyan
-    $proxy = New-Object NoAdminWSUSProxy($wsusServer, $payloadBytes, $payloadName, $Command, $Debug)
+    $proxy = New-Object NoAdminWSUSProxy($wsusServer, $payloadBytes, $payloadName, $Command, $DebugMode)
 
     # Start proxy
     Write-Log "Starting proxy on port $ProxyPort..." Cyan
@@ -607,7 +607,7 @@ try {
 
 } catch {
     Write-Log "ERROR: $($_.Exception.Message)" Red
-    if ($Debug) {
+    if ($DebugMode) {
         Write-Log "Stack trace:" Red
         Write-Log $_.ScriptStackTrace Red
     }
