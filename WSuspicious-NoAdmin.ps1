@@ -553,12 +553,21 @@ try {
     # Compile proxy
     Write-Log "Compiling HTTP proxy..." Cyan
     try {
-        Add-Type -TypeDefinition $proxyCode -Language CSharp -ReferencedAssemblies @('System.Net', 'System.Web') -ErrorAction Stop
-        Write-Log "Proxy compiled successfully" Green
+        # Check if type already exists (from previous run in same session)
+        if (-not ([System.Management.Automation.PSTypeName]'NoAdminWSUSProxy').Type) {
+            Add-Type -TypeDefinition $proxyCode -Language CSharp -ReferencedAssemblies @('System.Net', 'System.Web') -ErrorAction Stop
+            Write-Log "Proxy compiled successfully" Green
+        } else {
+            Write-Log "Proxy already compiled (reusing from session)" Green
+        }
     } catch {
-        Write-Log "ERROR: Failed to compile proxy" Red
-        Write-Log $_.Exception.Message Red
-        exit 1
+        if ($_.Exception.Message -match "already exists") {
+            Write-Log "Proxy already compiled (reusing from session)" Green
+        } else {
+            Write-Log "ERROR: Failed to compile proxy" Red
+            Write-Log $_.Exception.Message Red
+            exit 1
+        }
     }
 
     # Create proxy
