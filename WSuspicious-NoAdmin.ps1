@@ -178,7 +178,7 @@ public class $className
     private bool running = true;
     private object lockObj = new object();
 
-    public NoAdminWSUSProxy(string wsusUrl, byte[] payload, string payloadName, string command, bool debug)
+    public $className(string wsusUrl, byte[] payload, string payloadName, string command, bool debug)
     {
         Uri wsusUri = new Uri(wsusUrl);
         this.wsusHost = wsusUri.Host;
